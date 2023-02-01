@@ -91,7 +91,7 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
         else:
             observation = obs[None]
 
-        return ptu.to_numpy(self.forward(ptu.from_numpy(observation)))
+        return ptu.to_numpy(self.forward(ptu.from_numpy(observation)).sample())
 
     # update/train this policy
     def update(self, observations, actions, **kwargs):
@@ -139,7 +139,7 @@ class MLPPolicyPG(MLPPolicy):
         # HINT2: you will want to use the `log_prob` method on the distribution returned
             # by the `forward` method
 
-        TODO
+        loss = -1 * torch.mean(self.forward(observations).log_prob(actions) * advantages)
 
         if self.nn_baseline:
             ## TODO: update the neural network baseline using the q_values as

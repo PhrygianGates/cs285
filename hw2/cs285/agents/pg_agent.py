@@ -1,5 +1,7 @@
 import numpy as np
 
+from cs285.infrastructure.utils import normalize
+
 from .base_agent import BaseAgent
 from cs285.policies.MLP_policy import MLPPolicyPG
 from cs285.infrastructure.replay_buffer import ReplayBuffer
@@ -43,6 +45,10 @@ class PGAgent(BaseAgent):
         # using helper functions to compute qvals and advantages, and
         # return the train_log obtained from updating the policy
 
+        q_values = self.calculate_q_vals(rewards_list)
+        advantages = self.estimate_advantage(observations, rewards_list, q_values, terminals)
+        train_log = self.actor.update(observations, actions, advantages)
+
         return train_log
 
     def calculate_q_vals(self, rewards_list):
@@ -69,12 +75,12 @@ class PGAgent(BaseAgent):
         # then flattened to a 1D numpy array.
 
         if not self.reward_to_go:
-            TODO
+            q_values = np.concatenate([self._discounted_return(rews) for rews in rewards_list])
 
         # Case 2: reward-to-go PG
         # Estimate Q^{pi}(s_t, a_t) by the discounted sum of rewards starting from t
         else:
-            TODO
+            q_values = np.concatenate([self._discounted_cumsum(rews) for rews in rewards_list])
 
         return q_values
 
@@ -114,6 +120,7 @@ class PGAgent(BaseAgent):
                     ## HINT: use terminals to handle edge cases. terminals[i]
                         ## is 1 if the state is the last in its trajectory, and
                         ## 0 otherwise.
+                    pass
 
                 # remove dummy advantage
                 advantages = advantages[:-1]
@@ -129,8 +136,7 @@ class PGAgent(BaseAgent):
         # Normalize the resulting advantages to have a mean of zero
         # and a standard deviation of one
         if self.standardize_advantages:
-            advantages = TODO
-
+            advantages = normalize(advantages, np.mean(advantages), np.std(advantages))
         return advantages
 
     #####################################################
@@ -155,13 +161,17 @@ class PGAgent(BaseAgent):
             Output: list where each index t contains sum_{t'=0}^T gamma^t' r_{t'}
         """
 
-        return list_of_discounted_returns
+        s = np.sum(self.gamma ** np.arange(len(rewards)) * rewards)
+        return np.repeat(s, len(rewards))
 
     def _discounted_cumsum(self, rewards):
         """
             Helper function which
             -takes a list of rewards {r_0, r_1, ..., r_t', ... r_T},
-            -and returns a list where the entry in each index t' is sum_{t'=t}^T gamma^(t'-t) * r_{t'}
+            -and returns a list where the entry in each index t is sum_{t'=t}^T gamma^(t'-t) * r_{t'}
         """
-
+        list_of_discounted_cumsums = np.zeros(len(rewards))
+        gammas = self.gamma ** np.arange(len(rewards))
+        for i in range(len(rewards)):
+            list_of_discounted_cumsums[i] = np.sum(gammas[:len(rewards) - i] * rewards[i:])
         return list_of_discounted_cumsums
